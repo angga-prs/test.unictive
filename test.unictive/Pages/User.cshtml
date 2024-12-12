@@ -1,0 +1,176 @@
+﻿@page
+@model UserModel
+@{
+    Layout = "_Layout";
+}
+
+<h2>User Management</h2>
+
+<table id="userTable" class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Hobbies</th>
+            <th class="text-end">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in Model.Users)
+        {
+            <tr id="user-@user.Id">
+                <td>@user.Name</td>
+                <td>
+                    @foreach (var hobby in user.UserHobbies)
+                    {
+                        @hobby.Hobby.Name
+                        @if (user.UserHobbies.LastOrDefault() != hobby) 
+                        { 
+                            <span>, </span>
+                        }
+                    }
+                </td>
+                <td class="text-end">
+                    <button class="btn btn-primary" onclick="editUser(@user.Id)">Edit</button>
+                    <button class="btn btn-danger" onclick="deleteUser(@user.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+<button class="btn btn-success" onclick="addUser()">Add User</button>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    function addUser() {
+        fetch('/api/hobby/getAll')
+            .then(response => response.json())
+            .then(hobbies => {
+                const hobbyOptions = hobbies.map(hobby => {
+                    return `<option value="${hobby.id}">${hobby.name}</option>`;
+                }).join('');
+
+                Swal.fire({
+                    title: 'Add User',
+                    html: `
+                        <input type="text" id="name" class="swal2-input" placeholder="Name">
+                        <select id="hobbies" class="swal2-input" multiple style="width: 60%; height: 50%;>
+                            ${hobbyOptions}
+                        </select>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Save',
+                    preConfirm: () => {
+                        const name = document.getElementById('name').value;
+                        const selectedHobbies = Array.from(document.getElementById('hobbies').selectedOptions)
+                                                      .map(option => parseInt(option.value));
+
+                        fetch('/api/user/create', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+                            },
+                            body: JSON.stringify({
+                                name: name,
+                                hobbies: selectedHobbies
+                            })
+                        }).then(response => response.json())
+                        .then(data => {
+                            // return;
+                            if (data.status) {
+                                Swal.fire('Error', 'An Error Occured', 'error');
+                            } else {
+                                Swal.fire('Success', 'User added!', 'success');
+                                setTimeout(() => {
+                                    location.reload();
+                                }, 1000);
+                            }
+                        });
+                    }
+                });
+            });
+    }
+
+    function editUser(userId) {
+        fetch(`/api/user/get/${userId}`)
+        .then(response => response.json())
+        .then(user => {
+            fetch('/api/hobby/getAll')
+                .then(response => response.json())
+                .then(hobbies => {
+                    const hobbyOptions = hobbies.map(hobby => { 
+                        return `<option value="${hobby.id}">${hobby.name}</option>`;
+                    }).join('');
+
+                    Swal.fire({
+                        title: 'Edit User',
+                        html: `
+                            <input type="text" id="name" class="swal2-input" value="${user.name}">
+                            <select id="hobbies" class="swal2-input" multiple style="width: 60%; height: 50%;">
+                                ${hobbyOptions}
+                            </select>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Save',
+                        preConfirm: () => {
+                            const name = document.getElementById('name').value;
+                            const selectedHobbies = Array.from(document.getElementById('hobbies').selectedOptions)
+                                                          .map(option => parseInt(option.value));
+
+                            fetch(`/api/user/update/${userId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+                                },
+                                body: JSON.stringify({
+                                    name: name,
+                                    hobbies: selectedHobbies
+                                })
+                            }).then(response => response.json())
+                            .then(data => {
+                                if (data.status) {
+                                Swal.fire('Error', 'An Error Occured', 'error');
+                            } else {
+                                Swal.fire('Success', 'User Updated!', 'success');
+                                setTimeout(() => {
+                                    location.reload();
+                                }, 1000);
+                            }
+                            });
+                        }
+                    });
+                });
+        });
+    }
+
+    function deleteUser(userId) {
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "This action cannot be undone!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete it!',
+            preConfirm: () => {
+                fetch(`/api/user/delete/${userId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('jwt')}`
+                    }
+                }).then(response => {
+                    if (response.ok) {
+                        Swal.fire('Deleted!', 'User has been deleted.', 'success');
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        Swal.fire('Error', 'An Error Occured', 'error');
+                    }
+                });
+            }
+        });
+    }
+</script>
